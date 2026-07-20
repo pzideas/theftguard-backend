@@ -100,5 +100,14 @@ router.get('/:deviceId/alerts', async (req, res) => {
   const alerts = await Alert.find({ device: device._id }).sort({ createdAt: -1 }).limit(100);
   res.json({ alerts });
 });
-
+// Temporary: test email sending directly
+router.get('/test-email', async (req, res) => {
+  try {
+    const owner = await User.findById(req.userId);
+    await sendSosEmail(owner.email, 'Test Device', 27.85, 69.11, null);
+    res.json({ ok: true, message: 'Email sent, check inbox' });
+  } catch (err) {
+    res.status(500).json({ error: 'Email failed', detail: err.message, stack: err.stack });
+  }
+});
 module.exports = router;
