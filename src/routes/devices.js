@@ -5,6 +5,7 @@ const fs = require('fs');
 const Device = require('../models/Device');
 const LocationLog = require('../models/LocationLog');
 const Alert = require('../models/Alert');
+const User = require('../models/User');
 const requireAuth = require('../middleware/auth');
 
 const router = express.Router();
