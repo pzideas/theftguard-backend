@@ -7,6 +7,7 @@ const LocationLog = require('../models/LocationLog');
 const Alert = require('../models/Alert');
 const User = require('../models/User');
 const requireAuth = require('../middleware/auth');
+const { sendSosEmail } = require('../mailer');
 
 const router = express.Router();
 
