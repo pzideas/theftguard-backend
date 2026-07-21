@@ -26,3 +26,5 @@ async function sendSosEmail(toEmail, deviceModel, lat, lng, photoPath) {
   await transporter.sendMail(mailOptions);
 }
 module.exports = { sendSosEmail };
+
+
