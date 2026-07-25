@@ -18,15 +18,27 @@ const upload = multer({ dest: uploadsDir });
 router.use(requireAuth);
 
 // Register a new device under the logged-in owner
-router.post('/register', async (req, res) => {
+router.post('/alert', async (req, res) => {
   try {
-    const { imei, model } = req.body;
-    if (!imei) return res.status(400).json({ error: 'imei/identifier is required' });
+    const { deviceId, type, detail } = req.body;
+    const device = await Device.findOne({ _id: deviceId, owner: req.userId });
+    if (!device) return res.status(404).json({ error: 'Device not found' });
 
-    const device = await Device.create({ owner: req.userId, identifier: imei, model });
-    res.status(201).json({ deviceId: device._id });
+    const alert = await Alert.create({ device: device._id, type, detail });
+
+    if (type === 'SOS_TRIGGERED') {
+      const owner = await User.findById(req.userId);
+      if (owner) {
+        const lat = device.lastLocation?.lat ?? null;
+        const lng = device.lastLocation?.lng ?? null;
+        sendSosEmail(owner.email, device.model, lat, lng, null)
+          .catch((e) => console.error('SOS email send failed:', e.message));
+      }
+    }
+
+    res.status(201).json({ alertId: alert._id });
   } catch (err) {
-    res.status(500).json({ error: 'Device registration failed', detail: err.message });
+    res.status(500).json({ error: 'Failed to save alert', detail: err.message });
   }
 });
 
