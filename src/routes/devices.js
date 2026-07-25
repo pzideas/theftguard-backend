@@ -100,12 +100,30 @@ router.post('/photo', upload.single('photo'), async (req, res) => {
     const photoUrl = `/uploads/${req.file.filename}`;
     await Alert.create({ device: device._id, type: 'FAILED_UNLOCK_PHOTO', photoUrl });
 
+    // If an SOS was triggered in the last 30 seconds, send this photo
+    // along with it by email (so the owner gets the photo directly,
+    // not just a dashboard link).
+    const recentSos = await Alert.findOne({
+      device: device._id,
+      type: 'SOS_TRIGGERED',
+      createdAt: { $gte: new Date(Date.now() - 30000) }
+    }).sort({ createdAt: -1 });
+
+    if (recentSos) {
+      const owner = await User.findById(req.userId);
+      if (owner) {
+        const lat = device.lastLocation?.lat ?? null;
+        const lng = device.lastLocation?.lng ?? null;
+        sendSosEmail(owner.email, device.model, lat, lng, req.file.path)
+          .catch((e) => console.error('SOS photo email send failed:', e.message));
+      }
+    }
+
     res.json({ ok: true, photoUrl });
   } catch (err) {
     res.status(500).json({ error: 'Failed to save photo', detail: err.message });
   }
 });
-
 // Get all alerts for a device (newest first)
 router.get('/:deviceId/alerts', async (req, res) => {
   const device = await Device.findOne({ _id: req.params.deviceId, owner: req.userId });
