@@ -18,27 +18,19 @@ const upload = multer({ dest: uploadsDir });
 router.use(requireAuth);
 
 // Register a new device under the logged-in owner
-router.post('/alert', async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
-    const { deviceId, type, detail } = req.body;
-    const device = await Device.findOne({ _id: deviceId, owner: req.userId });
-    if (!device) return res.status(404).json({ error: 'Device not found' });
+    const { imei, model } = req.body;
+    if (!imei) return res.status(400).json({ error: 'imei is required' });
 
-    const alert = await Alert.create({ device: device._id, type, detail });
-
-    if (type === 'SOS_TRIGGERED') {
-      const owner = await User.findById(req.userId);
-      if (owner) {
-        const lat = device.lastLocation?.lat ?? null;
-        const lng = device.lastLocation?.lng ?? null;
-        sendSosEmail(owner.email, device.model, lat, lng, null)
-          .catch((e) => console.error('SOS email send failed:', e.message));
-      }
+    let device = await Device.findOne({ imei, owner: req.userId });
+    if (!device) {
+      device = await Device.create({ imei, model, owner: req.userId });
     }
 
-    res.status(201).json({ alertId: alert._id });
+    res.json({ deviceId: device._id });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to save alert', detail: err.message });
+    res.status(500).json({ error: 'Failed to register device', detail: err.message });
   }
 });
 
@@ -77,6 +69,8 @@ router.get('/:deviceId/history', async (req, res) => {
 });
 
 // Receive a security alert (failed unlock, SIM change, SOS, etc.)
+// Note: email sending is intentionally NOT handled here. For SOS, the
+// /photo route sends the (single) consolidated email with the photo attached.
 router.post('/alert', async (req, res) => {
   try {
     const { deviceId, type, detail } = req.body;
@@ -122,6 +116,7 @@ router.post('/photo', upload.single('photo'), async (req, res) => {
     res.status(500).json({ error: 'Failed to process photo', detail: err.message });
   }
 });
+
 // Get all alerts for a device (newest first)
 router.get('/:deviceId/alerts', async (req, res) => {
   const device = await Device.findOne({ _id: req.params.deviceId, owner: req.userId });
@@ -130,6 +125,7 @@ router.get('/:deviceId/alerts', async (req, res) => {
   const alerts = await Alert.find({ device: device._id }).sort({ createdAt: -1 }).limit(100);
   res.json({ alerts });
 });
+
 // Temporary: test email sending directly
 router.get('/test-email', async (req, res) => {
   try {
@@ -140,4 +136,5 @@ router.get('/test-email', async (req, res) => {
     res.status(500).json({ error: 'Email failed', detail: err.message, stack: err.stack });
   }
 });
+
 module.exports = router;
