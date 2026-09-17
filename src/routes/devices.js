@@ -23,9 +23,9 @@ router.post('/register', async (req, res) => {
     const { imei, model } = req.body;
     if (!imei) return res.status(400).json({ error: 'imei is required' });
 
-    let device = await Device.findOne({ imei, owner: req.userId });
+    let device = await Device.findOne({ identifier: imei, owner: req.userId });
     if (!device) {
-      device = await Device.create({ imei, model, owner: req.userId });
+      device = await Device.create({ identifier: imei, model, owner: req.userId });
     }
 
     res.json({ deviceId: device._id });
