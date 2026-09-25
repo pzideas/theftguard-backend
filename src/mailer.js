@@ -1,45 +1,36 @@
-const { Resend } = require('resend');
-const fs = require('fs');
-const resend = new Resend(process.env.RESEND_API_KEY);
+const nodemailer = require('nodemailer');
 
-async function sendSosEmail(toEmail, deviceModel, lat, lng, photoPath) {
-  const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
-  const hasPhoto = photoPath && fs.existsSync(photoPath);
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.SMTP_EMAIL,
+    pass: process.env.SMTP_APP_PASSWORD
+  }
+});
 
-  const emailPayload = {
-    from: 'TheftGuard Alerts <onboarding@resend.dev>',
+async function sendSosEmail(toEmail, deviceModel, lat, lng, photoUrl, opts) {
+  const options = opts || {};
+  const title = options.title || 'SOS Alert Triggered';
+  const subjectPrefix = options.subjectPrefix || '🚨 SOS Alert';
+
+  const mapsLink = (lat != null && lng != null)
+    ? `https://maps.google.com/?q=${lat},${lng}`
+    : null;
+
+  const mailOptions = {
+    from: `"TheftGuard Alerts" <${process.env.SMTP_EMAIL}>`,
     to: toEmail,
-    subject: `🚨 SOS Alert - ${deviceModel}`,
+    subject: `${subjectPrefix} - ${deviceModel}`,
     html: `
-      <h2 style="color:#d32f2f;">SOS Alert Triggered</h2>
-      <p>Your device <b>${deviceModel}</b> has triggered an SOS alert.</p>
-      <p><b>Live location:</b> <a href="${mapsLink}">${mapsLink}</a></p>
-      ${hasPhoto
-        ? '<p>A photo captured on the device is attached to this email.</p>'
-        : '<p>No photo is attached to this alert.</p>'}
+      <h2 style="color:#d32f2f;">${title}</h2>
+      <p>Your device <b>${deviceModel}</b> triggered an alert.</p>
+      ${mapsLink ? `<p><b>Live location:</b> <a href="${mapsLink}">${mapsLink}</a></p>` : ''}
+      ${photoUrl ? `<p><b>Captured photo:</b><br/><a href="${photoUrl}"><img src="${photoUrl}" style="max-width:320px;border-radius:8px;margin-top:8px;" /></a></p>` : ''}
+      <p>Check your TheftGuard dashboard for full details.</p>
     `
   };
 
-  if (hasPhoto) {
-    const base64Photo = fs.readFileSync(photoPath).toString('base64');
-    emailPayload.attachments = [{ filename: 'capture.jpg', content: base64Photo }];
-  }
-
-  await resend.emails.send(emailPayload);
+  await transporter.sendMail(mailOptions);
 }
 
-async function sendVerificationCode(toEmail, code) {
-  await resend.emails.send({
-    from: 'TheftGuard Alerts <onboarding@resend.dev>',
-    to: toEmail,
-    subject: 'Your TheftGuard verification code',
-    html: `
-      <h2>Verify your email</h2>
-      <p>Your TheftGuard verification code is:</p>
-      <h1 style="letter-spacing:4px;">${code}</h1>
-      <p>This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>
-    `
-  });
-}
-
-module.exports = { sendSosEmail, sendVerificationCode };
+module.exports = { sendSosEmail };
